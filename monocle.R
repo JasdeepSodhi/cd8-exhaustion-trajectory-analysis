@@ -4,6 +4,7 @@ library(SeuratWrappers)
 library(tidyverse)
 library(ggplot2)
 
+#Input and Process Seurat to Monocle Object
 data <- readRDS("CD8_DoubletRemoved_WholeAnno.RDS")
 md <- data@meta.data
 md <- md[, !duplicated(names(md)), drop = FALSE]      
@@ -33,6 +34,8 @@ cds@int_colData@listData$reducedDims$UMAP <- data@reductions$umap@cell.embedding
 cds <- learn_graph(cds)
 names(pData(cds)) <- make.unique(names(pData(cds)))
 
+
+#Colors scale
 colors <- c(
   "#FFEDFA",  # light pink
   "#FFB8E0",  # medium pink
@@ -56,6 +59,7 @@ colors <- c(
   "#C1E1C1"   # soft sage
 )
 
+#FULL UMAP
 a <- plot_cells(cds,
            color_cells_by = 'cluster',
            label_groups_by_cluster = FALSE,
@@ -66,8 +70,11 @@ a <- plot_cells(cds,
   theme(legend.position = "right") +
   scale_color_manual(values = colors)
 
+
+#Order cells (pseudotime) with CD8_7 cluster being initial
 cds <- order_cells(cds, root_cells = colnames(cds[,clusters(cds) == "CD8_7"]))
-                   
+     
+#Pseudotime full UMAP w.o trajectory
 b <- plot_cells(cds,
            color_cells_by = 'pseudotime',
            label_groups_by_cluster = FALSE,
@@ -77,6 +84,7 @@ b <- plot_cells(cds,
            group_label_size = 10,
            show_trajectory_graph = FALSE)
 
+#Pseudotime full UMAP w/ trajectory
 c <- plot_cells(cds,
                      color_cells_by = 'pseudotime',
                      label_groups_by_cluster = FALSE,
@@ -86,7 +94,7 @@ c <- plot_cells(cds,
                      label_roots = FALSE,
                      group_label_size = 10,
                      show_trajectory_graph = TRUE,
-                trajectory_graph_color = "black",      # choose any color (e.g. "grey30", "#222222")
+                trajectory_graph_color = "black",     
                 trajectory_graph_segment_size = 0.8) 
   
 
@@ -95,108 +103,35 @@ keep_clust <- c("CD8_7", "CD8_8", "CD8_4", "CD8_9", "CD8_3")
 genes_of_interest <- c("CTLA4", "TCF7", "Znf683", "IFNG", "TOX", "GZMK", "LAG3", 
                        "PDCD1", "GZMH;GZMB")
 
-#cds_3 <- choose_graph_segments(cds)
-  
-cds_3 <- cds[rowData(cds)$gene_short_name %in% genes_of_interest, colData(cds)$anno %in% keep_clust]
-cds_3 <- order_cells(cds_3)
 
+#Keep only genes and clusters that are relevant  
+cds_genes_filtered <- cds[rowData(cds)$gene_short_name %in% genes_of_interest, 
+             colData(cds)$anno %in% keep_clust]
+cds_genes_filtered <- order_cells(cds_genes_filtered, root_cells = colnames(cds_genes_filtered[,clusters(cds_genes_filtered) == "CD8_7"]))
+
+#Genes in pseudotime
 pseudotime_genes <- plot_genes_in_pseudotime(
-  cds_3,
+  cds_genes_filtered,
   color_cells_by = "ident",
   min_expr = 0.3
  # trend_formula = "~ splines::ns(pseudotime, df = 5)"
 ) + 
   scale_color_manual(values = colors)
 
-pseudotime_genes_2 <- plot_genes_in_pseudotime(
-  cds_3,
+pseudotime_genestwo <- plot_genes_in_pseudotime(
+  cds_genes_filtered,
   color_cells_by = "pseudotime",
   min_expr = 0.3
-  # trend_formula = "~ splines::ns(pseudotime, df = 5)"
 )
 
-n_genes <- length(genes_of_interest) 
-
-
-genes_umap <- plot_cells(cds_3,
+#Umap with genes of interest
+genes_umap <- plot_cells(cds_genes_filtered,
            genes = genes_of_interest,
            label_cell_groups = FALSE,
            show_trajectory_graph = FALSE,
            min_expr = 0.1)
 
-d <- plot_cells(cds_3,
-                     color_cells_by = 'pseudotime',
-                     label_groups_by_cluster = FALSE,
-                     label_cell_groups = FALSE,
-                     label_branch_points = FALSE,
-                     label_leaves = FALSE,
-                     label_roots = FALSE,
-                     group_label_size = 10,
-                     show_trajectory_graph = FALSE)
-
-a
-b
-c
-pseudotime_genes
-genes_umap
-#ggsave("pseudotime_tall.png", pseudotime_genes, width = 8, height = 2 * n_genes, units = "in", dpi = 300)
-
-a_2 <- plot_cells(cds_3,
-                    color_cells_by = 'cluster',
-                    label_groups_by_cluster = FALSE,
-                    label_cell_groups = FALSE,
-                    label_branch_points = FALSE,
-                    label_leaves = FALSE,
-                    show_trajectory_graph = TRUE,
-                  label_roots = FALSE) + 
-  theme(legend.position = "right")
-
-
-
-tissue_colors <- c("Healthy_blood" = "#B2D46B",  
-                   "Blood" = "#1F9E89",
-                   "Healthy" = "#BFDEE3",  
-                   "Margin" = "#FDD786",  
-                   "Tumor" = "#F78779",  
-                   "Tumor-distal" = "#499BC0" 
-)
-
-colors_two <- c(
-  "#FFEDFA",  # light pink
-  "#FFB8E0",  # medium pink
-  "#EC7FA9",  # pink-magenta
-  "#BE5985",  # deeper magenta
-  "#BFECFF",  # light sky blue
-  "#CDC1FF",  # lavender
-  "#FFF6E3",  # light cream
-  "#FFE29A",  # light yellow
-  "#FFCC80",  # peach
-  "#FABEAF",  # salmon
-  "#C8E7A4",  # soft green
-  "#A2D6B4",  # mint green
-  "#A6D8FF",  # baby blue
-  "#C2B9F2",  # pastel indigo
-  "#E4C1F9",  # light purple
-  "#D3BCC0",  # dusty rose
-  "#B5DED2",  # turquoise tint
-  "#FFE5B4",  # melon
-  "#EED5F5",  # lilac blush
-  "#C1E1C1",  # soft sage
-  "#F6E1E1",  # rose mist
-  "#BFD8EB",  # periwinkle mist
-  "#F0D1B5",  # apricot cream
-  "#D6E7D0"   # pale pistachio
-)
-
-
-cds_drop1 <- cds[, colData(cds)$Tissue_Type == "Healthy_blood"]
-cds_drop2 <- cds[, colData(cds)$Tissue_Type == "Blood"]
-cds_drop3 <- cds[, colData(cds)$Tissue_Type == "Healthy"]
-cds_drop4 <- cds[, colData(cds)$Tissue_Type == "Margin"]
-cds_drop5 <- cds[, colData(cds)$Tissue_Type == "Tumor"]
-cds_drop6 <- cds[, colData(cds)$Tissue_Type == "Tumor-distal"]
-
-
+#Umaps for populations present in specific tissue sites
 floating_umap1 <- plot_cells(
   cds,
   color_cells_by = "anno",
@@ -221,11 +156,9 @@ floating_umap1 <- plot_cells(
     axis.text = element_text(size = 10)
   )
 
-
 floating_umap1$layers[[1]]$aes_params$alpha <- 0.3   
 
 floating_umap1
-
 
 
 
